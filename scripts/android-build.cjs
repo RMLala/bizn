@@ -1,0 +1,1 @@
+const {spawnSync}=require('node:child_process');const path=require('node:path');const cwd=path.resolve(__dirname,'../android');const r=spawnSync(process.platform==='win32'?'gradlew.bat':'./gradlew',['assembleDebug'],{cwd,stdio:'inherit',shell:process.platform==='win32'});if(r.error)console.error(r.error.message);process.exit(r.status??1);

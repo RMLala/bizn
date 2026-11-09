@@ -1,0 +1,22 @@
+{
+  "name": "biznako",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestion locale multi-activit\u00e9s",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "sync": "npm run build && cap sync android",
+    "open": "cap open android",
+    "android:debug": "node scripts/android-build.cjs",
+    "doctor": "node scripts/doctor.cjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.9",
+    "@capacitor/core": "7.6.9"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.9",
+    "jsdom": "^30.1.3"
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Biznako</string>
+    <string name="title_activity_main">Biznako</string>
+    <string name="package_name">mg.biznako.gestion</string>
+    <string name="custom_url_scheme">mg.biznako.gestion</string>
+</resources>
