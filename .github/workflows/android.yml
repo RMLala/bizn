@@ -1,24 +1,21 @@
-name: Biznako Android
+name: Biznako Android API 23 et 29
 on:
-  workflow_dispatch:
   push:
-    branches: ["**"]
-    paths: ['**', '!README.md']
+    branches: [main]
+  workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   android:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-      ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '22'
           cache: npm
       - uses: actions/setup-java@v4
         with:
@@ -27,28 +24,78 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-      - name: Install Android SDK 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Install dependencies and sync Capacitor
-        run: npm ci && npm run sync
-      - name: Build debug APKs
-        working-directory: android
-        run: ./gradlew assembleApi23Debug assembleApi29Debug
-      - name: Upload debug APKs
-        uses: actions/upload-artifact@v4
+      - name: Install Android SDK 35 and Build Tools 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run frontend unit tests
+        run: npm test
+      - name: Build web app and sync Capacitor
+        run: npm run sync
+      - name: Compile API 23 and API 29 debug APKs
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew --no-daemon assembleApi23Debug assembleApi29Debug
+      - name: Verify debug APKs exist
+        run: |
+          test -s android/app/build/outputs/apk/api23/debug/app-api23-debug.apk
+          test -s android/app/build/outputs/apk/api29/debug/app-api29-debug.apk
+      - uses: actions/upload-artifact@v4
         with:
           name: Biznako-1.2.0-Debug-API23-API29
-          path: android/app/build/outputs/apk/*/debug/*.apk
+          path: |
+            android/app/build/outputs/apk/api23/debug/app-api23-debug.apk
+            android/app/build/outputs/apk/api29/debug/app-api29-debug.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Prepare release signing key
-        if: env.ANDROID_KEYSTORE_BASE64 != ''
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
-      - name: Build signed release APKs
-        if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_PASSWORD != ''
-        working-directory: android
-        run: ./gradlew assembleApi23Release assembleApi29Release -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/release-key.jks" -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
-      - name: Upload signed release APKs
-        if: env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEYSTORE_PASSWORD != '' && env.ANDROID_KEY_PASSWORD != ''
-        uses: actions/upload-artifact@v4
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Release APKs skipped: one or more signing secrets are not configured."
+            exit 0
+          fi
+          set +x
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biznako-release.jks"
+          test -s "$RUNNER_TEMP/biznako-release.jks"
+          echo "available=true" >> "$GITHUB_OUTPUT"
+      - name: Compile signed API 23 and API 29 release APKs
+        if: steps.signing.outputs.available == 'true'
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew --no-daemon assembleApi23Release assembleApi29Release \
+            -PreleaseVersionCode="$RELEASE_VERSION_CODE" \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/biznako-release.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+      - name: Verify signed release APKs exist
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          test -s android/app/build/outputs/apk/api23/release/app-api23-release.apk
+          test -s android/app/build/outputs/apk/api29/release/app-api29-release.apk
+      - uses: actions/upload-artifact@v4
+        if: steps.signing.outputs.available == 'true'
         with:
           name: Biznako-1.2.0-Release-API23-API29
-          path: android/app/build/outputs/apk/*/release/*.apk
+          path: |
+            android/app/build/outputs/apk/api23/release/app-api23-release.apk
+            android/app/build/outputs/apk/api29/release/app-api29-release.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/biznako-release.jks"

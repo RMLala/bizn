@@ -31,3 +31,8 @@ Dans GitHub, lance l’action Biznako Android via Actions → Run workflow, puis
 AppForge Cloud synchronise les enregistrements après connexion et garde le fonctionnement local hors ligne. Google Drive est une sauvegarde facultative séparée. Google OAuth doit être configuré et autorisé pour l’origine de l’application. Le fichier JSON sauvegardé n’est pas chiffré. L’ouverture directe du HTML en file:// ne permet pas Google OAuth ; l’APK n’a pas encore reçu de module Android natif Google OAuth dédié. Les sauvegardes JSON locales restent disponibles.
 
 Le projet et le workflow n’ont pas été compilés dans cette session ; aucun APK n’est inclus dans ce dossier.
+
+
+## APK API 23/29
+
+Les quatre variantes, leurs chemins, les secrets de signature et le fonctionnement GitHub Actions sont documentés dans [docs/ANDROID-BUILDS.md](docs/ANDROID-BUILDS.md). Le workflow de livraison est limité aux pushes sur main et au déclenchement manuel.

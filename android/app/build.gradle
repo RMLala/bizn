@@ -27,6 +27,13 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release' && project.hasProperty('releaseVersionCode')) {
+            def releaseCode = project.property('releaseVersionCode').toInteger()
+            if (releaseCode < 1) throw new GradleException("releaseVersionCode must be a positive integer")
+            variant.outputs.all { output -> output.versionCodeOverride = releaseCode }
+        }
+    }
 }
 
 repositories {
