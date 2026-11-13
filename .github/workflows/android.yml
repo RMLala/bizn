@@ -1,14 +1,17 @@
-name: Biznako Android 6 minimum
+name: Biznako Android API 23 et 29
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
-  debug:
+  android:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,21 +23,74 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
-      - name: Install SDK 35 and build tools
-        run: sdkmanager "platforms;android-35" "build-tools;34.0.0"
-      - run: npm ci
-      - run: npm test
-      - run: npm run sync
-      - name: Compile debug APK
+      - name: Install Android SDK platform and build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run frontend unit tests
+        run: npm test
+      - name: Build web app and sync Capacitor
+        run: npm run sync
+      - name: Compile API 23 and API 29 debug APKs
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew --no-daemon assembleDebug
-      - name: Verify APK exists
-        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+          ./gradlew --no-daemon assembleApi23Debug assembleApi29Debug
+      - name: Verify debug APKs exist
+        run: |
+          test -s android/app/build/outputs/apk/api23/debug/app-api23-debug.apk
+          test -s android/app/build/outputs/apk/api29/debug/app-api29-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Biznako-1.0.0-debug-Android6-API23
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Biznako-1.0.0-debug-API23-API29
+          path: |
+            android/app/build/outputs/apk/api23/debug/app-api23-debug.apk
+            android/app/build/outputs/apk/api29/debug/app-api29-debug.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Check release signing secrets
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Release APKs skipped: one or more signing secrets are not configured."
+            exit 0
+          fi
+          set +x
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biznako-release.jks"
+          test -s "$RUNNER_TEMP/biznako-release.jks"
+          echo "available=true" >> "$GITHUB_OUTPUT"
+      - name: Compile signed API 23 and API 29 release APKs
+        if: steps.signing.outputs.available == 'true'
+        env:
+          BIZNAKO_KEYSTORE_FILE: ${{ runner.temp }}/biznako-release.jks
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew --no-daemon assembleApi23Release assembleApi29Release -PreleaseVersionCode="$RELEASE_VERSION_CODE"
+      - name: Verify signed release APKs exist
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          test -s android/app/build/outputs/apk/api23/release/app-api23-release.apk
+          test -s android/app/build/outputs/apk/api29/release/app-api29-release.apk
+      - uses: actions/upload-artifact@v4
+        if: steps.signing.outputs.available == 'true'
+        with:
+          name: Biznako-1.0.0-release-signed-API23-API29
+          path: |
+            android/app/build/outputs/apk/api23/release/app-api23-release.apk
+            android/app/build/outputs/apk/api29/release/app-api29-release.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/biznako-release.jks"
