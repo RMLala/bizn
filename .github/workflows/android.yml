@@ -2,6 +2,8 @@ name: Biznako Android API 23 et 29
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -57,15 +59,21 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+          set +x
+          missing=""
+          [ -n "$ANDROID_KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$ANDROID_KEY_ALIAS" ] || missing="$missing ANDROID_KEY_ALIAS"
+          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -n "$ANDROID_KEY_PASSWORD" ] || missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "Release APKs skipped: one or more signing secrets are not configured."
+            echo "Release APKs skipped; unavailable secret names:$missing"
             exit 0
           fi
-          set +x
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biznako-release.jks"
           test -s "$RUNNER_TEMP/biznako-release.jks"
           echo "available=true" >> "$GITHUB_OUTPUT"
+          echo "All four signing secret names are available; Release builds will run."
       - name: Compile signed API 23 and API 29 release APKs
         if: steps.signing.outputs.available == 'true'
         env:

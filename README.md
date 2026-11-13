@@ -35,4 +35,4 @@ Le projet et le workflow n’ont pas été compilés dans cette session ; aucun 
 
 ## APK API 23/29
 
-Les quatre variantes, leurs chemins, les secrets de signature et le fonctionnement GitHub Actions sont documentés dans [docs/ANDROID-BUILDS.md](docs/ANDROID-BUILDS.md). Le workflow de livraison est limité aux pushes sur main et au déclenchement manuel.
+Les quatre variantes, leurs chemins, les secrets de signature et le fonctionnement GitHub Actions sont documentés dans [docs/ANDROID-BUILDS.md](docs/ANDROID-BUILDS.md). Les tests et builds Debug se déclenchent aussi pour une pull request vers main; les Release signées s’ajoutent si les quatre secrets sont accessibles.
