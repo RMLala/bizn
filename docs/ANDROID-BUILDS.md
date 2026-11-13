@@ -89,7 +89,7 @@ Les artefacts sont dans la page du run Actions. Vérifiez que les deux debug son
 ## Problèmes fréquents
 
 - JDK incompatible : définissez Android Studio > Settings > Build Tools > Gradle > Gradle JDK sur JDK 21.
-- SDK introuvable : installez Android SDK Platform 35 et Build Tools 35.0.0 dans SDK Manager; gardez local.properties local et non versionné.
+- SDK introuvable : installez Android SDK Platform 35 et Build Tools 34.0.0 dans SDK Manager; gardez local.properties local et non versionné.
 - Gradle ne télécharge pas : vérifiez proxy/pare-feu; gardez le Gradle Wrapper et évitez de changer ses versions sans vérifier la compatibilité AGP.
 - APK non trouvée : lisez la première erreur Gradle; le workflow échoue si une APK attendue manque.
 - Signature différente à l’installation : la mise à jour doit utiliser la même clé. Sauvegardez les données JSON avant de désinstaller une version existante.

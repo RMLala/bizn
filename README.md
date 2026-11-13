@@ -56,7 +56,7 @@ Les filtres du tableau de bord portent sur les dates des documents ; les flux po
 | Java | JDK 21 pour Capacitor 7 (AGP seul accepte 17, mais cela ne suffit pas ici) |
 | AGP | 8.7.2 |
 | Gradle Wrapper | 8.11.1, JAR et scripts Unix/Windows inclus |
-| minSdk | **23 : Android 6**, unique profil local et GitHub |
+| minSdk | flavor api23 : 23; flavor api29 : 29 |
 | compileSdk / targetSdk | 35 / 35 |
 | Build Tools | 34.0.0, valeur attendue par AGP 8.7 |
 | App ID | `mg.biznako.gestion`, identifiant proposé à réserver pour votre distribution |
@@ -74,79 +74,55 @@ La livraison vise installation directe/debug, pas une publication Google Play ce
 
 ## 6. Windows 11 : installer et ouvrir Android Studio
 
-Prérequis : Node.js 22, Git facultatif, Android Studio stable, JDK21 sélectionné et Android SDK35 installé. Une connexion Internet est nécessaire à la première installation npm/Gradle/SDK, pas à l’utilisation de l’application.
+Prérequis : Node.js 22, Android Studio stable, JDK21 sélectionné et Android SDK35 installé. Une connexion Internet est nécessaire à la première installation npm/Gradle/SDK, pas à l’utilisation de l’application.
 
-Décompressez le ZIP, par exemple dans `C:\Projets\Biznako`. Ouvrez PowerShell **dans ce dossier**, celui contenant package.json.
+Décompressez le ZIP, par exemple dans C:\\Projets\\Biznako. Ouvrez PowerShell dans ce dossier, celui contenant package.json.
 
-```powershell
-cd C:\Projets\Biznako
+~~~powershell
+cd C:\\Projets\\Biznako
 npm.cmd ci
 npm.cmd run build
 npm.cmd test
 npm.cmd run sync
 npm.cmd run open
-```
+~~~
 
-`npm.cmd` évite le blocage PowerShell de npm.ps1. `npm run sync` construit le HTML puis exécute `cap sync android`. `webDir` vaut `dist`. **android/ est déjà créé et synchronisé : ne lancez pas `npx cap add android`.** Les fichiers Java du plugin local restent dans android/ et ne sont pas écrasés par la synchronisation.
+npm.cmd évite le blocage PowerShell de npm.ps1. npm run sync construit le HTML puis exécute cap sync android. webDir vaut dist. Le dossier android/ est déjà créé et synchronisé : ne lancez pas npx cap add android.
 
-Vous pouvez aussi ouvrir directement `C:\Projets\Biznako\android` dans Android Studio après `npm ci` et `npm run sync`. Ne choisissez pas uniquement le dossier app.
+Dans Android Studio, ouvrez le dossier android/. Choisissez JDK21 dans Settings > Build Tools > Gradle. Dans SDK Manager, installez Android SDK Platform 35, Build Tools 34.0.0 et Platform-Tools. Gardez le Gradle Wrapper et les versions du projet.
 
-Dans Android Studio :
-1. Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK : choisissez ou téléchargez **JDK21**.
-2. SDK Manager : installez Android SDK Platform 35, Android SDK Build-Tools 34.0.0 et Android SDK Platform-Tools.
-3. Acceptez les licences SDK et laissez la synchronisation Gradle terminer.
-4. Conservez les versions du projet. N’acceptez pas une migration automatique majeure de Gradle/AGP sans réévaluer Capacitor et API23.
-5. Build → Build App Bundle(s) / APK(s) → Build APK(s), ou exécutez depuis PowerShell :
+Les Build Variants api23Debug et api29Debug produisent les APK Android 6 et Android 10. En terminal :
 
-```powershell
-cd C:\Projets\Biznako\android
-.\gradlew.bat assembleDebug
-```
+~~~powershell
+cd C:\\Projets\\Biznako\\android
+.\\gradlew.bat assembleApi23Debug assembleApi29Debug
+~~~
 
-APK exact : `C:\Projets\Biznako\android\app\build\outputs\apk\debug\app-debug.apk`.
-
-Pour la ligne de commande, JAVA_HOME doit pointer vers JDK21 et ANDROID_HOME vers votre SDK. Adaptez les chemins réels de votre poste (l’IDE crée local.properties localement ; ne le commitez pas). `npm.cmd run doctor` contrôle ces prérequis.
-
-Après une modification dans src/ : revenez à la racine, `npm.cmd run sync`, puis recompilez. Modifier uniquement dist/ serait écrasé au prochain build.
+Après une modification dans src/, revenez à la racine, exécutez npm.cmd run sync, puis recompilez. Modifier uniquement dist/ serait écrasé au prochain build.
 
 ## 7. GitHub Actions : les mêmes sources
 
-1. Créez un dépôt GitHub vide, de préférence privé.
-2. Poussez **tout le contenu du dossier Biznako à la racine du dépôt**, et non le ZIP lui-même. Le fichier package-lock.json et le dossier caché .github doivent être présents.
+Le dépôt contient déjà le workflow .github/workflows/android.yml. Il se déclenche à chaque push sur main et via Actions > Biznako Android API 23 et 29 > Run workflow. La PR de correction se compile après intégration ou peut être lancée manuellement sur sa branche.
 
-```powershell
-cd C:\Projets\Biznako
-git init
-git add .
-git commit -m "Biznako 1.0.0"
-git branch -M main
-```
+Le workflow installe Node22, JDK21 et SDK35, exécute npm ci et npm test, reconstruit le web, synchronise Capacitor, puis compile les deux APK debug. Il vérifie les deux chemins avant de déposer l’artefact Biznako-1.0.0-debug-API23-API29.
 
-Ajoutez ensuite l’URL réelle de votre dépôt avec `git remote add origin URL_DE_VOTRE_DEPOT`, puis `git push -u origin main`.
-
-3. Vérifiez `.github/workflows/android.yml` dans GitHub. Le workflow se déclenche sur chaque push de main et via Actions → Biznako Android 6 minimum → Run workflow.
-4. Il installe Node22, JDK21 et SDK35, lance npm ci, les tests, le build web, la synchronisation Capacitor et assembleDebug.
-5. Quand l’exécution est verte, téléchargez l’artefact **Biznako-1.0.0-debug-Android6-API23**, décompressez-le et récupérez app-debug.apk. Le workflow échoue si cet APK manque.
-
-Le workflow n’a pas été lancé sur votre compte. Aucun dépôt n’est créé par l’application.
+Pour obtenir aussi les APK release signées, configurez les quatre secrets Android décrits dans docs/ANDROID-BUILDS.md. Si l’un manque, le workflow conserve les APK debug et signale que les releases ont été ignorées. Les artefacts sont téléchargeables depuis la page du run Actions.
 
 ## 8. Installer sur téléphone
 
-Copiez app-debug.apk sur le téléphone. Ouvrez-le et autorisez temporairement l’installation depuis cette source si Android le demande. Lancez Biznako. Pour installer via USB : activez le débogage USB et utilisez `adb install -r android/app/build/outputs/apk/debug/app-debug.apk` depuis la racine.
+Téléchargez l’APK correspondant au profil du téléphone depuis l’artefact Actions et copiez-la sur le téléphone. Autorisez temporairement l’installation depuis cette source si Android le demande. API23 fonctionne à partir d’Android 6; API29 à partir d’Android 10.
 
-Pour conserver les données lors des mises à jour : même App ID, même signature, versionCode croissant. Les signatures debug GitHub peuvent différer entre exécutions et de votre poste : une mise à jour peut être refusée. **Exportez votre JSON avant toute désinstallation.** Pour des mises à jour durables, utilisez une release signée avec votre propre clé conservée en lieu sûr.
+Chemins debug : android/app/build/outputs/apk/api23/debug/app-api23-debug.apk et android/app/build/outputs/apk/api29/debug/app-api29-debug.apk. Pour installer par USB, utilisez adb install -r avec le chemin du profil choisi.
+
+Pour conserver les données lors des mises à jour, il faut garder le même App ID, la même signature et un versionCode croissant. Les signatures debug peuvent différer entre exécutions. Exportez votre JSON avant de désinstaller.
 
 ## 9. Debug, release signé et AAB
 
-- APK debug : test, signature de développement automatique, fourni par le workflow.
-- APK release signé : distribution directe durable, signé avec votre propre keystore.
-- AAB : paquet destiné à une boutique, non installable directement par simple ouverture comme un APK.
+- Les APK debug API23 et API29 servent aux essais.
+- Les APK release signées API23 et API29 sont destinées à la distribution directe durable et nécessitent le keystore privé configuré dans les secrets.
+- Un AAB est le format destiné à une boutique. Ce workflow ne produit pas d’AAB.
 
-Pour une release : Android Studio → Build → Generate Signed App Bundle or APK → APK ou Android App Bundle. Créez/conservez le keystore **hors du dossier du projet**, sauvegardez-le de façon sécurisée, renseignez alias et mots de passe dans l’assistant, puis sélectionnez release. Le chemin est affiché par l’assistant ; les sorties Gradle usuelles sont app/build/outputs/apk/release/ et app/build/outputs/bundle/release/.
-
-Aucun job release ni secret n’est nécessaire au profil debug livré. Pour une future automatisation signée, noms recommandés : ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Ils ne sont pas utilisés par le workflow actuel. Ne les ajoutez jamais au YAML ou au dépôt en clair. Un appel brut à assembleRelease ne constitue pas la preuve d’un APK signé.
-
-Pour changer l’App ID avant première diffusion : capacitor.config.json → appId, android/app/build.gradle → namespace et applicationId, package et répertoire des trois fichiers Java, android/app/src/main/res/values/strings.xml → package_name et custom_url_scheme. Puis npm run sync. Le provider utilise déjà `${applicationId}`. Choisissez un identifiant que vous contrôlez, sans prétendre que celui proposé est réservé.
+Les commandes PowerShell, les chemins exacts, l’incrémentation du versionCode release et la configuration sécurisée des secrets sont décrits dans docs/ANDROID-BUILDS.md. Le versionName reste 1.0.0; seul le versionCode release augmente. Ne mettez jamais un keystore ou ses mots de passe dans le dépôt.
 
 ## 10. Permissions et fonctions Android
 
@@ -168,7 +144,7 @@ Pour changer l’App ID avant première diffusion : capacitor.config.json → ap
 | SDK location not found | Ouvrez android/ dans Android Studio, installez le SDK et laissez l’IDE créer local.properties. |
 | platform android-35 absent | SDK Manager → Android35 ; ou sdkmanager "platforms;android-35". |
 | Téléchargement Gradle/Maven échoue | Vérifiez connexion, proxy/pare-feu, certificats et réessayez sans changer les versions au hasard. |
-| APK introuvable | Lisez la première erreur de compilation. Chemin attendu : android/app/build/outputs/apk/debug/app-debug.apk. |
+| APK introuvable | Lisez la première erreur de compilation. Chemins attendus : android/app/build/outputs/apk/api23/debug/app-api23-debug.apk et android/app/build/outputs/apk/api29/debug/app-api29-debug.apk. |
 | Application incompatible | Android doit être API23 minimum ; vérifiez aussi Android System WebView. |
 | Installation en conflit | Signature différente : sauvegardez JSON avant de désinstaller. Utilisez ensuite une clé release stable. |
 | Export Android semble bloqué | Le sélecteur de destination attend votre choix. Annuler renvoie un message explicite. |
