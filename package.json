@@ -1,8 +1,8 @@
 {
   "name": "biznako",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Gestion locale multi-activit\u00e9s",
+  "description": "Biznako 1.2.0 — gestion locale, AppForge Cloud et sauvegarde Drive facultative",
   "scripts": {
     "build": "node scripts/build.cjs",
     "test": "node --test tests/*.test.cjs",
