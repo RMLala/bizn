@@ -76,10 +76,10 @@ La livraison vise installation directe/debug, pas une publication Google Play ce
 
 Prérequis : Node.js 22, Android Studio stable, JDK21 sélectionné et Android SDK35 installé. Une connexion Internet est nécessaire à la première installation npm/Gradle/SDK, pas à l’utilisation de l’application.
 
-Décompressez le ZIP, par exemple dans C:\\Projets\\Biznako. Ouvrez PowerShell dans ce dossier, celui contenant package.json.
+Décompressez le ZIP, par exemple dans C:\Projets\Biznako. Ouvrez PowerShell dans ce dossier, celui contenant package.json.
 
 ~~~powershell
-cd C:\\Projets\\Biznako
+cd C:\Projets\Biznako
 npm.cmd ci
 npm.cmd run build
 npm.cmd test
@@ -94,8 +94,8 @@ Dans Android Studio, ouvrez le dossier android/. Choisissez JDK21 dans Settings 
 Les Build Variants api23Debug et api29Debug produisent les APK Android 6 et Android 10. En terminal :
 
 ~~~powershell
-cd C:\\Projets\\Biznako\\android
-.\\gradlew.bat assembleApi23Debug assembleApi29Debug
+cd C:\Projets\Biznako\android
+.\gradlew.bat assembleApi23Debug assembleApi29Debug
 ~~~
 
 Après une modification dans src/, revenez à la racine, exécutez npm.cmd run sync, puis recompilez. Modifier uniquement dist/ serait écrasé au prochain build.
