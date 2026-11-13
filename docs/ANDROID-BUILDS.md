@@ -45,10 +45,10 @@ Le workflow .github/workflows/android.yml s’exécute à chaque push sur main e
 
 Configurer les secrets au niveau de l’organisation ou du dépôt :
 
-- ANDROID_KEYSTORE_BASE64 : contenu du keystore encodé en Base64 sur une ligne.
-- ANDROID_KEY_ALIAS : alias de la clé.
-- ANDROID_KEYSTORE_PASSWORD : mot de passe du keystore.
-- ANDROID_KEY_PASSWORD : mot de passe de la clé.
+- KEYSTORE_BASE64 : contenu du keystore encodé en Base64 sur une ligne.
+- KEY_ALIAS : alias de la clé.
+- KEYSTORE_PASSWORD : mot de passe du keystore.
+- KEY_PASSWORD : mot de passe de la clé.
 
 Les secrets ne sont pas écrits dans le dépôt. Le keystore est placé temporairement dans RUNNER_TEMP et supprimé à la fin du job. Si un secret manque, le workflow produit tout de même les deux APK debug et affiche que les releases ont été ignorées. Les artifacts sont téléchargeables depuis la page du run Actions.
 

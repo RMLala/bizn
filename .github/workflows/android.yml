@@ -54,32 +54,32 @@ jobs:
       - name: Prepare release signing key
         id: signing
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set +x
           missing=""
-          [ -n "$ANDROID_KEYSTORE_BASE64" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
-          [ -n "$ANDROID_KEY_ALIAS" ] || missing="$missing ANDROID_KEY_ALIAS"
-          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
-          [ -n "$ANDROID_KEY_PASSWORD" ] || missing="$missing ANDROID_KEY_PASSWORD"
+          [ -n "$KEYSTORE_BASE64" ] || missing="$missing KEYSTORE_BASE64"
+          [ -n "$KEY_ALIAS" ] || missing="$missing KEY_ALIAS"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing KEYSTORE_PASSWORD"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing KEY_PASSWORD"
           if [ -n "$missing" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
             echo "Release APKs skipped; unavailable secret names:$missing"
             exit 0
           fi
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biznako-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/biznako-release.jks"
           test -s "$RUNNER_TEMP/biznako-release.jks"
           echo "available=true" >> "$GITHUB_OUTPUT"
           echo "All four signing secret names are available; Release builds will run."
       - name: Compile signed API 23 and API 29 release APKs
         if: steps.signing.outputs.available == 'true'
         env:
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           RELEASE_VERSION_CODE: ${{ github.run_number }}
         run: |
           chmod +x android/gradlew
@@ -87,9 +87,9 @@ jobs:
           ./gradlew --no-daemon assembleApi23Release assembleApi29Release \
             -PreleaseVersionCode="$RELEASE_VERSION_CODE" \
             -Pandroid.injected.signing.store.file="$RUNNER_TEMP/biznako-release.jks" \
-            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
       - name: Verify signed release APKs exist
         if: steps.signing.outputs.available == 'true'
         run: |

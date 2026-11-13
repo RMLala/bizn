@@ -22,7 +22,7 @@ API 23 = Android 6 et plus ; API 29 = Android 10 et plus. La version affichée e
 
 ## Release signé
 
-Le workflow GitHub Actions compile les deux Debug. Il compile aussi les deux Release si les secrets de l’organisation ou du dépôt sont disponibles : ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD et ANDROID_KEY_PASSWORD. Ne place jamais android-release.jks dans le dépôt.
+Le workflow GitHub Actions compile les deux Debug. Il compile aussi les deux Release si les secrets de l’organisation ou du dépôt sont disponibles : KEYSTORE_BASE64, KEY_ALIAS, KEYSTORE_PASSWORD et KEY_PASSWORD. Ne place jamais android-release.jks dans le dépôt.
 
 Dans GitHub, lance l’action Biznako Android via Actions → Run workflow, puis récupère les APK dans Artifacts.
 
