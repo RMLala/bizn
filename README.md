@@ -36,3 +36,11 @@ Le projet et le workflow n’ont pas été compilés dans cette session ; aucun 
 ## APK API 23/29
 
 Les quatre variantes, leurs chemins, les secrets de signature et le fonctionnement GitHub Actions sont documentés dans [docs/ANDROID-BUILDS.md](docs/ANDROID-BUILDS.md). Les tests et builds Debug se déclenchent aussi pour une pull request vers main; les Release signées s’ajoutent si les quatre secrets sont accessibles.
+
+## Personnaliser les rubriques métier
+
+Dans Réglages → Type d’activité, choisissez commerce de biens, services ou mixte. Les sections adaptées au profil sont affichées ; changer le profil ou masquer une rubrique ne supprime aucun enregistrement. Réactivez une rubrique pour retrouver ses données. Les tables disponibles comprennent articles/produits, stock et lots, ventes, clients/contacts, fournisseurs, services/commissions, encaissements, dépenses, analyses et historique.
+
+Les filtres des listes combinent activité, dates, statut, champ recherché (tous, nom, note ou référence) et tri par date, nom ou montant dans les deux sens. Enregistrez des filtres pour les réutiliser. La page « À propos & support » indique le mode de stockage, l’état réel de connexion Cloud, la version, les limites de confidentialité et le contact d’assistance.
+
+Les profils de démonstration (biens, services, mixte) contiennent des exemples fictifs et remplacent la base courante après confirmation. Exportez d’abord une sauvegarde si vous voulez garder vos données.
