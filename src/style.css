@@ -5,3 +5,11 @@
 
 /* Responsive dialogs: avoid clipped labels, overlapping controls and sticky-footer collisions. */
 #modal{padding:12px 8px env(safe-area-inset-bottom,12px);overscroll-behavior:contain}.dialog{width:min(760px,100%);max-height:calc(100dvh - 24px);min-width:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.dialog *{min-width:0;box-sizing:border-box}.dialog h2,.dialog h3,.dialog p,.dialog label,.dialog .small,.dialog .muted{overflow-wrap:anywhere;line-height:1.5}.dialog .stack,.dialog .grid,.dialog .two,.dialog form{min-width:0}.dialog .two{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:720px){#modal{align-items:flex-start}.dialog{margin:0 auto;max-height:calc(100dvh - 24px);padding:16px}.dialog .two,.dialog .settings-grid,.dialog .form-grid{grid-template-columns:minmax(0,1fr)!important}.dialog-footer{position:static;bottom:auto}.dialog-head{align-items:flex-start}.dialog-head h2{line-height:1.25;overflow-wrap:anywhere}}
+/* Configurable business tables and About panel */
+.table-toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface,transparent)}
+.table-toggles .check{min-height:42px;align-items:center}
+.about-list{display:grid;gap:0;margin:0}
+.about-list>div{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.about-list dt{color:var(--muted);font-size:.9rem}.about-list dd{margin:0;text-align:right;font-weight:600}
+.button-link{display:inline-flex;min-height:44px;align-items:center;padding:0 12px;border-radius:10px;border:1px solid var(--line);font-weight:600;text-decoration:none}
+@media(max-width:600px){.about-list>div{display:block}.about-list dd{text-align:left;margin-top:4px}}
