@@ -1,0 +1,67 @@
+name: Audit de finalisation (manuel)
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version candidate (ex. 1.0.0)"
+        required: true
+        type: string
+      build_run_id:
+        description: "ID du run GitHub Actions de compilation a auditer"
+        required: true
+        type: string
+      expected_artifacts:
+        description: "Noms exacts des artefacts requis, separes par virgule"
+        required: true
+        default: "html,debug,release-api23,release-api29"
+        type: string
+      functional_approval:
+        description: "Validation fonctionnelle du proprietaire deja obtenue ?"
+        required: true
+        default: false
+        type: boolean
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier run, conclusion et artefacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.build_run_id }}
+          EXPECTED: ${{ inputs.expected_artifacts }}
+          VERSION: ${{ inputs.version }}
+          APPROVED: ${{ inputs.functional_approval }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Rapport de finalisation — ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Run de compilation : ${RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "ID de run invalide" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > run.json
+          jq -e --arg repo "$REPO" '.repository.full_name == $repo and .status == "completed" and .conclusion == "success"' run.json >/dev/null || {
+            echo "❌ Run non termine, echoue ou autre depot" >> "$GITHUB_STEP_SUMMARY"; exit 1;
+          }
+          gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq '.artifacts[] | select(.expired == false) | .name' > artifacts.txt
+          missing=0
+          IFS=',' read -ra names <<< "$EXPECTED"
+          for name in "${names[@]}"; do
+            name="$(echo "$name" | xargs)"
+            [[ -n "$name" ]] || continue
+            if grep -Fxq -- "$name" artifacts.txt; then
+              echo "- ✅ Artefact : $name" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ Artefact absent : $name" >> "$GITHUB_STEP_SUMMARY"
+              missing=1
+            fi
+          done
+          echo "- Validation fonctionnelle declaree : $APPROVED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Licences, synchronisation, sauvegarde, securite et guide : verification manuelle requise" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Statut : audit technique uniquement ; aucune finalisation automatique" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Visibilite du depot : inchangee" >> "$GITHUB_STEP_SUMMARY"
+          test "$missing" -eq 0
