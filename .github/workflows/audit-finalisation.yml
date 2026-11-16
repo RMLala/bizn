@@ -50,17 +50,22 @@ jobs:
           base="audit-apks"
           debug="$base/Biznako-1.2.0-Debug-API23-API29"
           release="$base/Biznako-1.2.0-Release-API23-API29"
-          for file in \
-            "$debug/android/app/build/outputs/apk/api23/debug/app-api23-debug.apk" \
-            "$debug/android/app/build/outputs/apk/api29/debug/app-api29-debug.apk" \
-            "$release/android/app/build/outputs/apk/api23/release/app-api23-release.apk" \
-            "$release/android/app/build/outputs/apk/api29/release/app-api29-release.apk"; do
-            if [[ ! -s "$file" ]]; then
-              echo "❌ APK manquant : $file" >> "$GITHUB_STEP_SUMMARY"
+          for spec in \
+            "$debug|app-api23-debug.apk" \
+            "$debug|app-api29-debug.apk" \
+            "$release|app-api23-release.apk" \
+            "$release|app-api29-release.apk"; do
+            folder="${spec%%|*}"
+            name="${spec#*|}"
+            count="$(find "$folder" -type f -name "$name" | wc -l)"
+            if [[ "$count" -ne 1 ]]; then
+              echo "❌ APK absent ou ambigu : $name" >> "$GITHUB_STEP_SUMMARY"
               exit 1
             fi
+            file="$(find "$folder" -type f -name "$name" -print -quit)"
+            test -s "$file"
             unzip -tq "$file" >/dev/null
-            echo "- ✅ APK present et archive lisible : $(basename "$file")" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ✅ APK present et archive lisible : $name" >> "$GITHUB_STEP_SUMMARY"
           done
           echo "- Signatures Release : NON VERIFIEES dans cette version de l'audit" >> "$GITHUB_STEP_SUMMARY"
           echo "- Statut : controle des artefacts reussi, pas de finalisation automatique" >> "$GITHUB_STEP_SUMMARY"
