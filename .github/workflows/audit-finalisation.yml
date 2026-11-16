@@ -1,67 +1,66 @@
-name: Audit de finalisation (manuel)
+name: Audit de finalisation
 on:
+  workflow_run:
+    workflows: ["Biznako Android API 23 et 29"]
+    types: [completed]
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version candidate (ex. 1.0.0)"
-        required: true
-        type: string
       build_run_id:
-        description: "ID du run GitHub Actions de compilation a auditer"
+        description: "ID de compilation a auditer (test manuel)"
         required: true
         type: string
-      expected_artifacts:
-        description: "Noms exacts des artefacts requis, separes par virgule"
-        required: true
-        default: "html,debug,release-api23,release-api29"
-        type: string
-      functional_approval:
-        description: "Validation fonctionnelle du proprietaire deja obtenue ?"
-        required: true
-        default: false
-        type: boolean
+
 permissions:
   actions: read
   contents: read
+
 jobs:
   audit:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Verifier run, conclusion et artefacts
+      - name: Controler le run source
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          RUN_ID: ${{ inputs.build_run_id }}
-          EXPECTED: ${{ inputs.expected_artifacts }}
-          VERSION: ${{ inputs.version }}
-          APPROVED: ${{ inputs.functional_approval }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || exit 1
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > run.json
+          jq -e --arg repo "$REPO" '.repository.full_name == $repo and .status == "completed" and .conclusion == "success" and .name == "Biznako Android API 23 et 29"' run.json >/dev/null
+          echo "## Audit technique Biznako v1.2.0" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Compilation : $RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit source : $(jq -r .head_sha run.json)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation fonctionnelle : EN ATTENTE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Licence, synchro, sauvegarde et guide : A VERIFIER" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Visibilite du depot : INCHANGEE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Recuperer les archives APK
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id || inputs.build_run_id }}
+          github-token: ${{ github.token }}
+          pattern: Biznako-1.2.0-*
+          path: audit-apks
+      - name: Verifier les quatre APK et les archives
         shell: bash
         run: |
           set -euo pipefail
-          echo "## Rapport de finalisation — ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Run de compilation : ${RUN_ID}" >> "$GITHUB_STEP_SUMMARY"
-          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "ID de run invalide" >> "$GITHUB_STEP_SUMMARY"; exit 1
-          fi
-          gh api "repos/$REPO/actions/runs/$RUN_ID" > run.json
-          jq -e --arg repo "$REPO" '.repository.full_name == $repo and .status == "completed" and .conclusion == "success"' run.json >/dev/null || {
-            echo "❌ Run non termine, echoue ou autre depot" >> "$GITHUB_STEP_SUMMARY"; exit 1;
-          }
-          gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq '.artifacts[] | select(.expired == false) | .name' > artifacts.txt
-          missing=0
-          IFS=',' read -ra names <<< "$EXPECTED"
-          for name in "${names[@]}"; do
-            name="$(echo "$name" | xargs)"
-            [[ -n "$name" ]] || continue
-            if grep -Fxq -- "$name" artifacts.txt; then
-              echo "- ✅ Artefact : $name" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "- ❌ Artefact absent : $name" >> "$GITHUB_STEP_SUMMARY"
-              missing=1
+          base="audit-apks"
+          debug="$base/Biznako-1.2.0-Debug-API23-API29"
+          release="$base/Biznako-1.2.0-Release-API23-API29"
+          for file in \
+            "$debug/android/app/build/outputs/apk/api23/debug/app-api23-debug.apk" \
+            "$debug/android/app/build/outputs/apk/api29/debug/app-api29-debug.apk" \
+            "$release/android/app/build/outputs/apk/api23/release/app-api23-release.apk" \
+            "$release/android/app/build/outputs/apk/api29/release/app-api29-release.apk"; do
+            if [[ ! -s "$file" ]]; then
+              echo "❌ APK manquant : $file" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
             fi
+            unzip -tq "$file" >/dev/null
+            echo "- ✅ APK present et archive lisible : $(basename "$file")" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "- Validation fonctionnelle declaree : $APPROVED" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Licences, synchronisation, sauvegarde, securite et guide : verification manuelle requise" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Statut : audit technique uniquement ; aucune finalisation automatique" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Visibilite du depot : inchangee" >> "$GITHUB_STEP_SUMMARY"
-          test "$missing" -eq 0
+          echo "- Signatures Release : NON VERIFIEES dans cette version de l'audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Statut : controle des artefacts reussi, pas de finalisation automatique" >> "$GITHUB_STEP_SUMMARY"
