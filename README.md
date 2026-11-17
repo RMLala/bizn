@@ -28,14 +28,20 @@ Dans GitHub, lance l’action Biznako Android via Actions → Run workflow, puis
 
 ## Synchronisation et sauvegardes
 
-AppForge Cloud synchronise les enregistrements après connexion et garde le fonctionnement local hors ligne. Google Drive est une sauvegarde facultative séparée. Les sauvegardes JSON peuvent être chiffrées facultativement avec un mot de passe (AES-GCM) ; les anciens exports JSON restent restaurables. Dans l’application Android, le partage ouvre le sélecteur système avec le fichier privé transmis par `FileProvider` (Google Drive peut être choisi parmi les cibles installées). Dans le navigateur, Web Share Files est utilisé lorsqu’il est pris en charge. Si le partage natif échoue, l’export Android via le sélecteur de document reste disponible. Aucun OAuth Google Drive n’est utilisé et ce mécanisme ne réalise pas une synchronisation Drive automatique. La restauration utilise le sélecteur de fichiers et demande confirmation avant remplacement des données locales.
+AppForge Cloud synchronise les enregistrements après connexion et garde le fonctionnement local hors ligne. Les licences AppForge et l’accès Cloud automatique après activation ne sont pas encore intégrés dans Biznako. Google Drive est une sauvegarde facultative séparée. Les sauvegardes JSON peuvent être chiffrées facultativement avec un mot de passe (AES-GCM) ; les anciens exports JSON restent restaurables. Dans l’application Android, le partage ouvre le sélecteur système avec le fichier privé transmis par `FileProvider` (Google Drive peut être choisi parmi les cibles installées). Dans le navigateur, Web Share Files est utilisé lorsqu’il est pris en charge. Si le partage natif échoue, l’export Android via le sélecteur de document reste disponible. Aucun OAuth Google Drive n’est utilisé et ce mécanisme ne réalise pas une synchronisation Drive automatique. La restauration utilise le sélecteur de fichiers et demande confirmation avant remplacement des données locales.
 
-Le projet et le workflow n’ont pas été compilés dans cette session ; aucun APK n’est inclus dans ce dossier.
+Les builds actuels sont publiés dans les artefacts du workflow GitHub Actions de la branche concernée.
 
 
 ## APK API 23/29
 
 Les quatre variantes, leurs chemins, les secrets de signature et le fonctionnement GitHub Actions sont documentés dans [docs/ANDROID-BUILDS.md](docs/ANDROID-BUILDS.md). Les tests et builds Debug se déclenchent aussi pour une pull request vers main; les Release signées s’ajoutent si les quatre secrets sont accessibles.
+
+## Verrouillage Android
+
+L’application Android demande la biométrie en priorité quand le système la propose, avec un PIN local de secours de 4 à 12 chiffres. Le vérificateur PIN est un HMAC protégé par une clé Android Keystore et les échecs répétés imposent un délai. Le verrouillage Android est déclenché à l’ouverture et au retour dans l’application. Le HTML ouvert dans un navigateur ne prétend pas fournir cette protection.
+
+Ce mécanisme protège l’accès à l’interface sur un appareil Android standard ; il ne chiffre pas à lui seul les données IndexedDB. Les données métier et sauvegardes restent à protéger par les mécanismes de stockage/sauvegarde prévus.
 
 ## Personnaliser les rubriques métier
 

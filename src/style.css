@@ -13,3 +13,5 @@
 .about-list dt{color:var(--muted);font-size:.9rem}.about-list dd{margin:0;text-align:right;font-weight:600}
 .button-link{display:inline-flex;min-height:44px;align-items:center;padding:0 12px;border-radius:10px;border:1px solid var(--line);font-weight:600;text-decoration:none}
 @media(max-width:600px){.about-list>div{display:block}.about-list dd{text-align:left;margin-top:4px}}
+
+.security-lock[hidden]{display:none!important}.security-lock{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:var(--bg)}.security-lock-card{width:min(100%,420px);padding:28px;border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow);text-align:center}.security-lock-card .brand{justify-content:center}.security-lock-card h1{font-size:22px;margin:22px 0 8px}.security-lock-card p{margin:0 0 20px}.security-lock-card button{width:100%}body.locked{overflow:hidden}
