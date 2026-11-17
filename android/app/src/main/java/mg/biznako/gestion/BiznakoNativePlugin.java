@@ -63,8 +63,14 @@ public class BiznakoNativePlugin extends Plugin {
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             Intent chooser = Intent.createChooser(send, "Partager la sauvegarde Biznako");
             chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getActivity().startActivity(chooser);
-            JSObject result = new JSObject(); result.put("shared", true); call.resolve(result);
+            getActivity().runOnUiThread(() -> {
+                try {
+                    getActivity().startActivity(chooser);
+                    JSObject result = new JSObject(); result.put("shared", true); call.resolve(result);
+                } catch (Exception e) {
+                    call.reject("Partage indisponible sur cet appareil.", e);
+                }
+            });
         } catch (Exception e) {
             call.reject("Partage indisponible sur cet appareil.", e);
         }
