@@ -28,7 +28,7 @@ Dans GitHub, lance l’action Biznako Android via Actions → Run workflow, puis
 
 ## Synchronisation et sauvegardes
 
-AppForge Cloud synchronise les enregistrements après connexion et garde le fonctionnement local hors ligne. Google Drive est une sauvegarde facultative séparée. Google OAuth doit être configuré et autorisé pour l’origine de l’application. Le fichier JSON sauvegardé n’est pas chiffré. L’ouverture directe du HTML en file:// ne permet pas Google OAuth ; l’APK n’a pas encore reçu de module Android natif Google OAuth dédié. Les sauvegardes JSON locales restent disponibles.
+AppForge Cloud synchronise les enregistrements après connexion et garde le fonctionnement local hors ligne. Google Drive est une sauvegarde facultative séparée. Les sauvegardes JSON peuvent être chiffrées facultativement avec un mot de passe (AES-GCM) ; les anciens exports JSON restent restaurables. Le partage système de fichier est tenté lorsque Web Share Files est disponible (par exemple vers Drive installé), sinon l’export de fichier existant est conservé. Ce mécanisme n’utilise pas OAuth Google Drive et ne constitue pas une synchronisation Drive automatique. Sur certaines versions d’Android WebView, le partage direct peut être indisponible : il faut alors exporter le fichier puis utiliser l’application Drive. La restauration utilise le sélecteur de fichiers et demande confirmation avant remplacement des données locales.
 
 Le projet et le workflow n’ont pas été compilés dans cette session ; aucun APK n’est inclus dans ce dossier.
 
