@@ -6,6 +6,8 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ClipData;
+import android.net.Uri;
 import android.os.Build;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
@@ -13,6 +15,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.activity.result.ActivityResult;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -23,6 +26,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 
 @CapacitorPlugin(name = "BiznakoNative", permissions = {
@@ -30,6 +35,41 @@ import java.nio.charset.StandardCharsets;
 })
 public class BiznakoNativePlugin extends Plugin {
     private WebView printView;
+    @PluginMethod public void shareFile(PluginCall call) {
+        String data = call.getString("data");
+        String filename = call.getString("filename", "Biznako.json");
+        String mime = call.getString("mime", "application/json");
+        if (data == null) { call.reject("Fichier absent."); return; }
+        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > 12 * 1024 * 1024) { call.reject("Fichier trop volumineux."); return; }
+        String safeName = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (safeName.isEmpty() || safeName.equals(".") || safeName.equals("..")) safeName = "Biznako.json";
+        String safeMime = mime.equals("application/json") ? mime : "application/octet-stream";
+        try {
+            File dir = new File(getContext().getCacheDir(), "biznako-share");
+            if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("Dossier temporaire indisponible.");
+            File[] stale = dir.listFiles();
+            if (stale != null) {
+                long cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+                for (File old : stale) if (old.isFile() && old.lastModified() < cutoff) old.delete();
+            }
+            File file = new File(dir, safeName);
+            try (FileOutputStream output = new FileOutputStream(file)) { output.write(bytes); }
+            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(safeMime);
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.setClipData(ClipData.newUri(getContext().getContentResolver(), safeName, uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, "Partager la sauvegarde Biznako");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().startActivity(chooser);
+            JSObject result = new JSObject(); result.put("shared", true); call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Partage indisponible sur cet appareil.", e);
+        }
+    }
+
 
     @PluginMethod public void saveFile(PluginCall call) {
         String data = call.getString("data");
