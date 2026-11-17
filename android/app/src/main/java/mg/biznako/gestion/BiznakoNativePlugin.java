@@ -4,11 +4,18 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.app.AlertDialog;
+import android.text.InputType;
+import android.text.InputFilter;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ClipData;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Base64;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.webkit.WebView;
@@ -16,6 +23,9 @@ import android.webkit.WebViewClient;
 import androidx.activity.result.ActivityResult;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
+import androidx.core.content.ContextCompat;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -29,12 +39,133 @@ import java.io.OutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 
 @CapacitorPlugin(name = "BiznakoNative", permissions = {
     @Permission(alias = "notifications", strings = {Manifest.permission.POST_NOTIFICATIONS})
 })
 public class BiznakoNativePlugin extends Plugin {
     private WebView printView;
+
+    private static final String SECURITY_PREFS = "biznako_security";
+    private static final String PIN_KEY_ALIAS = "biznako_pin_hmac_v1";
+
+    @PluginMethod public void ensureUnlocked(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (!hasPin()) { showPinSetup(call, false); return; }
+            authenticate(call, () -> { JSObject result = new JSObject(); result.put("unlocked", true); call.resolve(result); });
+        });
+    }
+
+    @PluginMethod public void changePin(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (!hasPin()) { showPinSetup(call, false); return; }
+            authenticate(call, () -> showPinSetup(call, true));
+        });
+    }
+
+    private boolean hasPin() {
+        return getContext().getSharedPreferences(SECURITY_PREFS, Context.MODE_PRIVATE).contains("pin_hash");
+    }
+
+    private void authenticate(PluginCall call, Runnable onSuccess) {
+        int status = BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+        if (status != BiometricManager.BIOMETRIC_SUCCESS) { showPinDialog(call, onSuccess); return; }
+        BiometricPrompt prompt = new BiometricPrompt(getActivity(), ContextCompat.getMainExecutor(getContext()), new BiometricPrompt.AuthenticationCallback() {
+            @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) { onSuccess.run(); }
+            @Override public void onAuthenticationError(int errorCode, CharSequence errString) {
+                if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) showPinDialog(call, onSuccess);
+                else call.reject("Déverrouillage annulé. Réessayez pour ouvrir Biznako.");
+            }
+            @Override public void onAuthenticationFailed() { }
+        });
+        BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Déverrouiller Biznako")
+            .setSubtitle("La biométrie est prioritaire ; utilisez le PIN si nécessaire.")
+            .setNegativeButtonText("Utiliser mon PIN")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .build();
+        prompt.authenticate(info);
+    }
+
+    private void showPinSetup(PluginCall call, boolean changing) {
+        LinearLayout box = new LinearLayout(getContext()); box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(20 * getContext().getResources().getDisplayMetrics().density); box.setPadding(pad, pad, pad, 0);
+        EditText pin = new EditText(getContext()); pin.setHint("PIN · 4 à 12 chiffres"); pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD); pin.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        EditText confirm = new EditText(getContext()); confirm.setHint("Confirmer le PIN"); confirm.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD); confirm.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        box.addView(pin); box.addView(confirm);
+        AlertDialog dialog = new AlertDialog.Builder(getActivity()).setTitle(changing ? "Nouveau code PIN" : "Protéger Biznako")
+            .setMessage("La biométrie sera proposée en priorité. Le PIN reste le secours.")
+            .setView(box).setNegativeButton("Annuler", (d,w) -> call.reject("Configuration du PIN annulée."))
+            .setPositiveButton("Enregistrer", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+            String a = pin.getText().toString(), b = confirm.getText().toString();
+            if (!a.matches("[0-9]{4,12}")) { pin.setError("Saisissez 4 à 12 chiffres."); return; }
+            if (!a.equals(b)) { confirm.setError("Les deux codes ne correspondent pas."); return; }
+            try { storePin(a); dialog.dismiss(); JSObject result = new JSObject(); result.put("configured", true); call.resolve(result); }
+            catch (Exception e) { pin.setError("Enregistrement sécurisé indisponible."); }
+        }));
+        dialog.show();
+    }
+
+    private void showPinDialog(PluginCall call, Runnable onSuccess) {
+        EditText pin = new EditText(getContext()); pin.setHint("Code PIN"); pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        pin.setFilters(new InputFilter[]{new InputFilter.LengthFilter(12)});
+        AlertDialog dialog = new AlertDialog.Builder(getActivity()).setTitle("Code PIN de secours")
+            .setMessage("La biométrie n’est pas disponible ou a été annulée.")
+            .setView(pin).setNegativeButton("Annuler", (d,w) -> call.reject("Déverrouillage annulé."))
+            .setPositiveButton("Déverrouiller", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+            try { verifyPin(pin.getText().toString()); dialog.dismiss(); onSuccess.run(); }
+            catch (Exception e) { pin.setError(e.getMessage()); pin.setText(""); }
+        }));
+        dialog.show();
+    }
+
+    private void storePin(String pin) throws Exception {
+        byte[] salt = new byte[16]; new SecureRandom().nextBytes(salt);
+        byte[] hash = pinMac(salt, pin);
+        getContext().getSharedPreferences(SECURITY_PREFS, Context.MODE_PRIVATE).edit()
+            .putString("pin_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
+            .putString("pin_hash", Base64.encodeToString(hash, Base64.NO_WRAP))
+            .putInt("pin_failures", 0).putLong("pin_blocked_until", 0).apply();
+    }
+
+    private void verifyPin(String pin) throws Exception {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences(SECURITY_PREFS, Context.MODE_PRIVATE);
+        long blocked = prefs.getLong("pin_blocked_until", 0);
+        if (System.currentTimeMillis() < blocked) throw new Exception("Trop d’essais. Réessayez plus tard.");
+        byte[] salt = Base64.decode(prefs.getString("pin_salt", ""), Base64.NO_WRAP);
+        byte[] expected = Base64.decode(prefs.getString("pin_hash", ""), Base64.NO_WRAP);
+        boolean valid = pin.matches("[0-9]{4,12}") && MessageDigest.isEqual(expected, pinMac(salt, pin));
+        if (valid) { prefs.edit().putInt("pin_failures", 0).putLong("pin_blocked_until", 0).apply(); return; }
+        int failures = prefs.getInt("pin_failures", 0) + 1;
+        long delay = failures < 5 ? 0 : Math.min(300000L, 30000L * (failures - 4));
+        prefs.edit().putInt("pin_failures", failures).putLong("pin_blocked_until", System.currentTimeMillis() + delay).apply();
+        throw new Exception(failures >= 5 ? "PIN incorrect. Accès temporairement limité." : "PIN incorrect.");
+    }
+
+    private byte[] pinMac(byte[] salt, String pin) throws Exception {
+        KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+        SecretKey key = (SecretKey)store.getKey(PIN_KEY_ALIAS, null);
+        if (key == null) {
+            KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, "AndroidKeyStore");
+            generator.init(new KeyGenParameterSpec.Builder(PIN_KEY_ALIAS, KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setDigests(KeyProperties.DIGEST_SHA256).build());
+            key = generator.generateKey();
+        }
+        Mac mac = Mac.getInstance("HmacSHA256"); mac.init(key); mac.update(salt);
+        return mac.doFinal(pin.getBytes(StandardCharsets.UTF_8));
+    }
+
     @PluginMethod public void shareFile(PluginCall call) {
         String data = call.getString("data");
         String filename = call.getString("filename", "Biznako.json");
