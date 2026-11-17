@@ -76,7 +76,17 @@ async function decodedBackup(raw){let envelope;try{envelope=JSON.parse(raw)}catc
 // Share through the system file chooser when supported, otherwise retain native saveFile / HTML download.
 // No Google OAuth, Google Drive API token or automatic cloud upload is involved.
 async function saveOrShareBackup(filename,data){
-  if(typeof File==='function' && typeof navigator?.share==='function' && typeof navigator?.canShare==='function'){
+  // Capacitor Android uses a real ACTION_SEND chooser and FileProvider URI.
+  // If Android has no usable share handler, retain the existing save dialog fallback.
+  if(native()){
+    try{
+      await bridge().shareFile({filename,data,mime:'application/json'});
+      toast(t('Feuille de partage ouverte.','Nisokatra ny safidy fizarana.'));
+      return;
+    }catch(err){
+      // Native sharing unavailable: continue to the existing ACTION_CREATE_DOCUMENT export.
+    }
+  }else if(typeof File==='function' && typeof navigator?.share==='function' && typeof navigator?.canShare==='function'){
     try{
       const file=new File([data],filename,{type:'application/json'});
       if(navigator.canShare({files:[file]})){
@@ -85,8 +95,8 @@ async function saveOrShareBackup(filename,data){
           toast(t('Sauvegarde partagée.','Nozaraina ny tahiry.'));
           return;
         }catch(err){
-          if(err?.name==='AbortError')return; // User cancelled the share sheet; do not silently save elsewhere.
-          // Web Share can be unavailable in some Android WebViews; keep file-export fallback.
+          if(err?.name==='AbortError')return; // Cancellation never triggers a hidden export.
+          // Keep the browser download fallback when Web Share fails.
         }
       }
     }catch{/* Fall back to the existing file export. */}
