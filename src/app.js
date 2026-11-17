@@ -29,26 +29,6 @@ async function requireAppUnlock(){
     return false;
   }finally{securityPromptActive=false;}
 }
-let securityPromptActive=false;
-function showSecurityLock(message=''){
-  const cover=$('#securityLock');if(!cover)return;
-  cover.hidden=false;document.body.classList.add('locked');
-  const status=$('#securityLockStatus');if(status)status.textContent=message||t('Déverrouillez Biznako pour continuer.','Sokafy ny Biznako mba hanohizana.');
-}
-async function requireAppUnlock(){
-  if(!native())return true;
-  if(securityPromptActive)return false;
-  securityPromptActive=true;showSecurityLock();
-  try{
-    await bridge().ensureUnlocked();
-    document.body.classList.remove('locked');
-    const cover=$('#securityLock');if(cover)cover.hidden=true;
-    return true;
-  }catch(err){
-    showSecurityLock(t('Déverrouillage requis. Touchez « Réessayer » pour relancer la biométrie ou saisir le PIN.','Ilaina ny manokatra. Tsindrio « Andramo indray » mba hampiasa biometrika na PIN.'));
-    return false;
-  }finally{securityPromptActive=false;}
-}
 function toast(msg){$('#toast').textContent=msg;$('#toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').style.display='none',4200);}
 function error(e){console.error('[Biznako]',e?.message||e);toast(t('Erreur : ','Hadisoana: ')+(e?.message||e));}
 function openDB(){return new Promise((resolve,reject)=>{if(!window.indexedDB){storageMode='local';return resolve();}let req;try{req=indexedDB.open('biznako-local',1);}catch(e){storageMode='local';return resolve();}req.onupgradeneeded=()=>{req.result.createObjectStore('data');};req.onsuccess=()=>{db=req.result;db.onversionchange=()=>db.close();resolve();};req.onerror=()=>{storageMode='local';resolve();};req.onblocked=()=>{storageMode='local';resolve();};});}
