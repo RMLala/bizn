@@ -73,7 +73,38 @@ const backup64ToBytes=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
 async function backupKey(password,salt){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
 async function encryptedBackup(raw,password){if(!crypto.subtle)throw Error('Chiffrement indisponible sur cet appareil.');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));const key=await backupKey(password,salt);const payload=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(raw)));return JSON.stringify({format:'appforge-v3-aesgcm',version:1,kdf:'PBKDF2-SHA256',iterations:310000,salt:backupBytesTo64(salt),iv:backupBytesTo64(iv),ciphertext:backupBytesTo64(payload)});}
 async function decodedBackup(raw){let envelope;try{envelope=JSON.parse(raw)}catch{return raw}if(!envelope||envelope.format!=='appforge-v3-aesgcm')return raw;if(envelope.version!==1||envelope.iterations!==310000)throw Error('Format chiffré non pris en charge.');if(!crypto.subtle)throw Error('Déchiffrement indisponible.');const password=prompt('Mot de passe de cette sauvegarde chiffrée :');if(password===null)throw Error('Restauration annulée.');try{const salt=backup64ToBytes(envelope.salt),iv=backup64ToBytes(envelope.iv),data=backup64ToBytes(envelope.ciphertext);if(salt.length!==16||iv.length!==12||data.length>12*1024*1024)throw Error('Format invalide.');const key=await backupKey(password,salt);return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv},key,data));}catch{throw Error('Mot de passe incorrect ou sauvegarde endommagée.');}}
-async function backup(){const raw=JSON.stringify(state,null,2);if(confirm('Chiffrer cette sauvegarde avec un mot de passe ? (Annuler = JSON classique non chiffré)')){const password=prompt('Choisissez un mot de passe fort (12 caractères minimum) :');if(password===null)return;if(password.length<12)throw Error('Mot de passe trop court (12 caractères minimum).');const confirmPassword=prompt('Confirmez le mot de passe :');if(confirmPassword!==password)throw Error('Confirmation différente.');return download(`Biznako_${B.today()}_${Date.now()}.encrypted.json`,await encryptedBackup(raw,password));}return download(`Biznako_${B.today()}_${Date.now()}.json`,raw);}
+// Share through the system file chooser when supported, otherwise retain native saveFile / HTML download.
+// No Google OAuth, Google Drive API token or automatic cloud upload is involved.
+async function saveOrShareBackup(filename,data){
+  if(typeof File==='function' && typeof navigator?.share==='function' && typeof navigator?.canShare==='function'){
+    try{
+      const file=new File([data],filename,{type:'application/json'});
+      if(navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file],title:'Sauvegarde Biznako'});
+          toast(t('Sauvegarde partagée.','Nozaraina ny tahiry.'));
+          return;
+        }catch(err){
+          if(err?.name==='AbortError')return; // User cancelled the share sheet; do not silently save elsewhere.
+          // Web Share can be unavailable in some Android WebViews; keep file-export fallback.
+        }
+      }
+    }catch{/* Fall back to the existing file export. */}
+  }
+  return download(filename,data);
+}
+async function backup(){
+  const raw=JSON.stringify(state,null,2);
+  if(confirm('Chiffrer cette sauvegarde avec un mot de passe ? (Annuler = JSON classique non chiffré)')){
+    const password=prompt('Choisissez un mot de passe fort (12 caractères minimum) :');
+    if(password===null)return;
+    if(password.length<12)throw Error('Mot de passe trop court (12 caractères minimum).');
+    const confirmPassword=prompt('Confirmez le mot de passe :');
+    if(confirmPassword!==password)throw Error('Confirmation différente.');
+    return saveOrShareBackup(`Biznako_${B.today()}_${Date.now()}.encrypted.json`,await encryptedBackup(raw,password));
+  }
+  return saveOrShareBackup(`Biznako_${B.today()}_${Date.now()}.json`,raw);
+}
 
 function strip(html){const el=document.createElement('div');el.innerHTML=html;return el.textContent;}
 function listCSV(){const rows=filtered(view);return download(`Biznako_${view}_${B.today()}.csv`,B.csv([listColumns(view),...rows.map(r=>rowCells(view,r,true).map(strip))]),'text/csv;charset=utf-8');}
