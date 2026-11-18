@@ -111,7 +111,9 @@ jobs:
           apk-glob: 'android/app/build/outputs/apk/api29/release/*.apk'
           application: 'Biznako'
           folder-id: '1VZK3LOT54Lkz7aWM8jVAp30l6pM9X5rb'
-          service-account-json: ${{ secrets.DRIVE_SERVICE_ACCOUNT_JSON }}
+          oauth-client-id: ${{ secrets.DRIVE_OAUTH_CLIENT_ID }}
+          oauth-client-secret: ${{ secrets.DRIVE_OAUTH_CLIENT_SECRET }}
+          oauth-token-json: ${{ secrets.DRIVE_OAUTH_TOKEN_JSON }}
       - name: Remove temporary signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/biznako-release.jks"
