@@ -215,8 +215,9 @@ public class BiznakoNativePlugin extends Plugin {
             byte[] iv = cipher.getIV(), ciphertext = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
             byte[] blob = new byte[iv.length + ciphertext.length];
             System.arraycopy(iv, 0, blob, 0, iv.length); System.arraycopy(ciphertext, 0, blob, iv.length, ciphertext.length);
-            getContext().getSharedPreferences(CLOUD_PREFS, Context.MODE_PRIVATE).edit()
+            boolean saved = getContext().getSharedPreferences(CLOUD_PREFS, Context.MODE_PRIVATE).edit()
                 .putString(name, Base64.encodeToString(blob, Base64.NO_WRAP)).commit();
+            if (!saved) throw new java.io.IOException("Écriture sécurisée refusée.");
             JSObject result = new JSObject(); result.put("stored", true); call.resolve(result);
         } catch (Exception e) { call.reject("Enregistrement sécurisé indisponible.", e); }
     }
