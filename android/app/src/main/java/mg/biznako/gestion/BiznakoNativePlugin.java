@@ -46,6 +46,8 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 
@@ -57,6 +59,8 @@ public class BiznakoNativePlugin extends Plugin {
 
     private static final String SECURITY_PREFS = "biznako_security";
     private static final String PIN_KEY_ALIAS = "biznako_pin_hmac_v1";
+    private static final String CLOUD_PREFS = "biznako_cloud_secure";
+    private static final String CLOUD_KEY_ALIAS = "biznako_cloud_aes_v1";
 
     @PluginMethod public void ensureUnlocked(PluginCall call) {
         getActivity().runOnUiThread(() -> {
@@ -164,6 +168,64 @@ public class BiznakoNativePlugin extends Plugin {
         }
         Mac mac = Mac.getInstance("HmacSHA256"); mac.init(key); mac.update(salt);
         return mac.doFinal(pin.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private SecretKey cloudStorageKey() throws Exception {
+        KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+        SecretKey key = (SecretKey)store.getKey(CLOUD_KEY_ALIAS, null);
+        if (key != null) return key;
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        generator.init(new KeyGenParameterSpec.Builder(CLOUD_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setRandomizedEncryptionRequired(true)
+            .build());
+        return generator.generateKey();
+    }
+
+    private boolean validSecureName(String key) {
+        return key != null && key.matches("[A-Za-z0-9_-]{1,80}");
+    }
+
+    @PluginMethod public void getSecureValue(PluginCall call) {
+        String name = call.getString("key");
+        if (!validSecureName(name)) { call.reject("Clé de stockage invalide."); return; }
+        try {
+            String stored = getContext().getSharedPreferences(CLOUD_PREFS, Context.MODE_PRIVATE).getString(name, null);
+            JSObject result = new JSObject();
+            if (stored != null) {
+                byte[] blob = Base64.decode(stored, Base64.NO_WRAP);
+                if (blob.length < 13) throw new java.io.IOException("Donnée sécurisée invalide.");
+                byte[] iv = java.util.Arrays.copyOfRange(blob, 0, 12);
+                byte[] ciphertext = java.util.Arrays.copyOfRange(blob, 12, blob.length);
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.DECRYPT_MODE, cloudStorageKey(), new GCMParameterSpec(128, iv));
+                result.put("value", new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
+            } else result.put("value", "");
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Stockage sécurisé indisponible. Réactivez la licence en ligne si nécessaire.", e); }
+    }
+
+    @PluginMethod public void setSecureValue(PluginCall call) {
+        String name = call.getString("key"), value = call.getString("value");
+        if (!validSecureName(name) || value == null || value.length() > 20000) { call.reject("Valeur de stockage sécurisée invalide."); return; }
+        try {
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, cloudStorageKey());
+            byte[] iv = cipher.getIV(), ciphertext = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
+            byte[] blob = new byte[iv.length + ciphertext.length];
+            System.arraycopy(iv, 0, blob, 0, iv.length); System.arraycopy(ciphertext, 0, blob, iv.length, ciphertext.length);
+            getContext().getSharedPreferences(CLOUD_PREFS, Context.MODE_PRIVATE).edit()
+                .putString(name, Base64.encodeToString(blob, Base64.NO_WRAP)).commit();
+            JSObject result = new JSObject(); result.put("stored", true); call.resolve(result);
+        } catch (Exception e) { call.reject("Enregistrement sécurisé indisponible.", e); }
+    }
+
+    @PluginMethod public void removeSecureValue(PluginCall call) {
+        String name = call.getString("key");
+        if (!validSecureName(name)) { call.reject("Clé de stockage invalide."); return; }
+        boolean removed = getContext().getSharedPreferences(CLOUD_PREFS, Context.MODE_PRIVATE).edit().remove(name).commit();
+        JSObject result = new JSObject(); result.put("removed", removed); call.resolve(result);
     }
 
     @PluginMethod public void shareFile(PluginCall call) {
