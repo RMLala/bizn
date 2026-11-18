@@ -104,6 +104,14 @@ jobs:
             android/app/build/outputs/apk/api29/release/app-api29-release.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Archive signed API29 APK in Google Drive
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: RMLala/android-template/.github/actions/upload-api29-drive@main
+        with:
+          apk-glob: 'android/app/build/outputs/apk/api29/release/*.apk'
+          application: 'Biznako'
+          folder-id: '1VZK3LOT54Lkz7aWM8jVAp30l6pM9X5rb'
+          service-account-json: ${{ secrets.DRIVE_SERVICE_ACCOUNT_JSON }}
       - name: Remove temporary signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/biznako-release.jks"
