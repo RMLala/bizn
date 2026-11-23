@@ -52,6 +52,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Prepare release signing key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -75,7 +76,7 @@ jobs:
           echo "available=true" >> "$GITHUB_OUTPUT"
           echo "All four signing secret names are available; Release builds will run."
       - name: Compile signed API 23 and API 29 release APKs
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
