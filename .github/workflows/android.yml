@@ -92,12 +92,12 @@ jobs:
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
       - name: Verify signed release APKs exist
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         run: |
           test -s android/app/build/outputs/apk/api23/release/app-api23-release.apk
           test -s android/app/build/outputs/apk/api29/release/app-api29-release.apk
       - uses: actions/upload-artifact@v4
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         with:
           name: Biznako-1.2.0-Release-API23-API29
           path: |
