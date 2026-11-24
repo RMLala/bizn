@@ -52,6 +52,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Prepare release signing key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -75,7 +76,7 @@ jobs:
           echo "available=true" >> "$GITHUB_OUTPUT"
           echo "All four signing secret names are available; Release builds will run."
       - name: Compile signed API 23 and API 29 release APKs
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -91,12 +92,12 @@ jobs:
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
       - name: Verify signed release APKs exist
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         run: |
           test -s android/app/build/outputs/apk/api23/release/app-api23-release.apk
           test -s android/app/build/outputs/apk/api29/release/app-api29-release.apk
       - uses: actions/upload-artifact@v4
-        if: steps.signing.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.signing.outputs.available == 'true'
         with:
           name: Biznako-1.2.0-Release-API23-API29
           path: |
